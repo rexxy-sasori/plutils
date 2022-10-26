@@ -3,7 +3,7 @@ import os
 
 import wget
 
-SHELL_SCRIPT_LINK = "http://randomsite.com/file.gz"
+SHELL_SCRIPT_LINK = "https://github.com/rexxy-sasori/plutils/raw/main/shell/imgnet_organize.sh"
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
