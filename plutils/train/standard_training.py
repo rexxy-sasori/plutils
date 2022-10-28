@@ -115,7 +115,7 @@ def run_standard_training(
         pl_module.load_state_dict(ckpt['state_dict'])
         debug_msg(f"finished loading model states from {ckpt_path} !!", verbose)
     except FileNotFoundError:
-        debug_msg('ckpt not found, start pretraining', verbose)
+        debug_msg(f'ckpt not found at {ckpt_path}, start train the model', verbose)
         trainer.fit(model=pl_module, datamodule=data_module)
     finally:
         trainer.test(model=pl_module, datamodule=data_module)

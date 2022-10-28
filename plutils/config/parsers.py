@@ -1,10 +1,13 @@
 from datetime import datetime
 
+import numpy as np
 from pytorch_lightning.loggers import CSVLogger
 from torch import optim
 
+import plutils.utils
 from plutils.config.usr_config import EmptyConfig
-from plutils.utils import none_check, get_wd_nwd_params, attr_check
+from plutils.prune.partition import get_block_search_space_model
+from plutils.utils import none_check, get_wd_nwd_params, attr_check, is_linear_transform_layer
 
 
 def parse_optimization_config(model, optimizer_config, lr_scheduler_config):
@@ -105,3 +108,93 @@ def parse_strategy(strategy_config):
 
     strategy_cls = getattr(strategies, strategy_config.name)
     return strategy_cls(**strategy_config.init_args.__dict__)
+
+
+def parse_block_policy(model, usr_config):
+    assert hasattr(usr_config, 'block_policy')
+
+    if hasattr(usr_config.block_policy, 'tau_acc'):
+        return _parse_heuristical_block_policy(model, usr_config.block_policy)
+    else:
+        return usr_config.block_policy.__dict__
+
+
+def _parse_heuristical_block_policy(model, block_policy):
+    """
+    parse the block policy if (name, dimension) pair is not specifically given
+    :param model:
+    :param block_policy policy in the following format
+    UsrConfig
+        conv_mode:
+        fc_mode:
+        tau_acc:
+        usr_valid_brs:
+        usr_valid_bcs:
+        filter_func_name:
+        shape_dependent:
+        policy_name:
+    :return: (name, dimension) pairs for all target module in a model
+    """
+
+    try:
+        filter_func = getattr(plutils.utils, block_policy.filter_func_name)
+    except:
+        filter_func = None
+
+    search_space = get_block_search_space_model(
+        model, block_policy.conv_mode, block_policy.fc_mode,
+        block_policy.usr_valid_brs,
+        block_policy.usr_valid_bcs,
+        block_policy.tau_acc,
+        filter_func
+    )
+
+    ret = {}
+    checked_op = {}
+    for n, m in model.named_modules():
+        if is_linear_transform_layer(m):
+            candidates_this_layer = search_space.get(n)
+            if block_policy.shape_dependent:
+                dimension = checked_op.get(tuple(m.weight.data.shape))
+                if dimension is None:
+                    dimension = _get_dimension_given_policy(candidates_this_layer, block_policy.policy_name)
+                    checked_op[tuple(m.weight.data.shape)] = dimension
+
+                ret[n] = dimension
+            else:
+                ret[n] = _get_dimension_given_policy(candidates_this_layer, block_policy.policy_name)
+
+    return ret
+
+
+def _get_dimension_given_policy(candidates, policy_name):
+    block_sizes = np.array([v[0] * v[1] for v in candidates])
+    if policy_name == 'min':
+        block_dimension = candidates[np.argmin(block_sizes)]
+    elif policy_name == 'max':
+        block_dimension = candidates[np.argmax(block_sizes)]
+    elif policy_name == 'unstructured':
+        block_dimension = (1, 1)
+    elif policy_name == 'max_sq':
+        valids = [v for v in candidates if v[0] == v[1]]
+        sizes = [v[0] * v[1] for v in valids]
+        block_dimension = valids[np.argmax(sizes)]
+    elif policy_name == 'long_y_max':
+        valids = [v for v in candidates if v[0] > v[1]]
+        block_sizes = np.array([v[0] * v[1] for v in valids])
+        block_dimension = valids[np.argmax(block_sizes)] if len(block_sizes) >= 1 else (1, 1)
+    elif policy_name == 'long_y_max_single':
+        valids = [v for v in candidates if v[1] == 1 and v[0] >= v[1]]
+        block_sizes = np.array([v[0] * v[1] for v in valids])
+        block_dimension = valids[np.argmax(block_sizes)] if len(block_sizes) >= 1 else (1, 1)
+    elif policy_name == 'long_x_max_single':
+        valids = [v for v in candidates if v[0] == 1 and v[0] <= v[1]]
+        block_sizes = np.array([v[0] * v[1] for v in valids])
+        block_dimension = valids[np.argmax(block_sizes)] if len(block_sizes) >= 1 else (1, 1)
+    elif 'random' in policy_name:
+        idx = np.random.randint(len(candidates))
+        block_dimension = candidates[idx]
+    else:
+        raise NotImplementedError
+
+    return block_dimension
