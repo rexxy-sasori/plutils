@@ -33,7 +33,7 @@ if __name__ == '__main__':
         pl_module=training_module,
         data_module=data_module,
         num_epochs=usr_config.trainer.num_epochs,
-        ckpt_path=usr_config.model.ckpt_path,
+        ckpt_path=usr_config.module.ckpt_path,
         logger=logger,
         strategy=strategy,
         callbacks=callbacks,
