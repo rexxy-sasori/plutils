@@ -34,8 +34,8 @@ def parse_optimization_config(model, optimizer_config, lr_scheduler_config):
 
 
 def parse_model(usr_config, modellib):
-    model_cls = getattr(modellib, usr_config.module.name)
-    model_obj = model_cls(usr_config)
+    model_cls = getattr(modellib, usr_config.model.name)
+    model_obj = model_cls(**usr_config.model.init_args.__dict__)
     return model_obj
 
 

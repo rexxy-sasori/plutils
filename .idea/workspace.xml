@@ -5,23 +5,9 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="f25c0fa3-89c8-4e7a-b33c-8f8d1fc14a46" name="Changes" comment="">
-      <change afterPath="$PROJECT_DIR$/.idea/vcs.xml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/__init__.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/plutils/example/__init__.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/plutils/example/run_dlth_prune.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/plutils/example/run_imp_prune.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/plutils/example/run_inference.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/plutils/example/run_standard_training.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/plutils/models/__init__.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/plutils/models/resnet.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/plutils/models/vgg.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/plutils/prune/partition.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/.gitignore" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/modules.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/modules.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/plutils.iml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/plutils.iml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/plutils/analysis.py" beforeDir="false" afterPath="$PROJECT_DIR$/plutils/analysis.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/plutils/config/parsers.py" beforeDir="false" afterPath="$PROJECT_DIR$/plutils/config/parsers.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/plutils/data/__init__.py" beforeDir="false" afterPath="$PROJECT_DIR$/plutils/data/__init__.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/plutils/train/standard_training.py" beforeDir="false" afterPath="$PROJECT_DIR$/plutils/train/standard_training.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -64,7 +50,8 @@
       <option name="number" value="Default" />
       <option name="presentableId" value="Default" />
       <updated>1666972190219</updated>
-      <workItem from="1666972191374" duration="1666000" />
+      <workItem from="1666972191374" duration="4245000" />
+      <workItem from="1667028896529" duration="1679000" />
     </task>
     <servers />
   </component>

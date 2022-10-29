@@ -33,6 +33,10 @@ def get_sparsity(model: nn.Module):
 
 
 def get_pr_over_kp(module: nn.Module, mask: torch.Tensor):
+    """
+    Given a mask dividing the model into two sets, this method computes the ratio of the pruned weights' power to the
+    remaining weights
+    """
     if get_sparsity(module)['sparsity'] == 0:
         return 0
     else:
