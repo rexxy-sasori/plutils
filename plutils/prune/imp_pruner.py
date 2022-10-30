@@ -19,8 +19,8 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
 import torchmetrics
-from pytorch_lightning import Trainer
 from pytorch_lightning.callbacks import EarlyStopping, ModelCheckpoint
+from pytorch_lightning import callbacks as callbackpool
 
 from plutils.analysis import get_num_params, get_sparsity
 from plutils.config.parsers import parse_strategy, parse_logging, parse_callbacks
@@ -84,7 +84,7 @@ class ImpPruner:
 
         logger = parse_logging(usr_config=usr_config, use_time_code=usr_config.trainer.use_time_code, name='pretrain')
         pretrain_strategy = parse_strategy(usr_config.pruner.init_args.pretrain_strategy)
-        callbacks = parse_callbacks(logger, usr_config, usr_config.trainer.persist_ckpt)
+        callbacks = parse_callbacks(logger, usr_config, callbackpool, usr_config.trainer.persist_ckpt)
 
         self.train_model(logger, pretrain_strategy, callbacks, data_module)
 
@@ -122,7 +122,7 @@ class ImpPruner:
                 )
             )
 
-        trainer = Trainer(
+        trainer = pl.Trainer(
             max_epochs=1000000,  # don't worry, early stopping will always kill this
             accelerator="auto", benchmark=True, devices=-1, logger=logger, strategy=strategy,
             callbacks=callbacks,

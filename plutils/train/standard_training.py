@@ -4,7 +4,6 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
 import torchmetrics
-from pytorch_lightning import Trainer
 
 from plutils.config.parsers import parse_optimization_config
 from plutils.utils import debug_msg
@@ -98,7 +97,7 @@ def run_standard_training(
         msg = f'Wrap the model with {StandardTrainingModule.__name__} before start training'
         raise ValueError(msg)
 
-    trainer = Trainer(
+    trainer = pl.Trainer(
         max_epochs=num_epochs,
         accelerator="auto",
         accumulate_grad_batches=1,

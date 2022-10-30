@@ -4,8 +4,9 @@ from pytorch_lightning import seed_everything
 
 import plutils.data as datazoo
 import plutils.models as modelzoo
+from pytorch_lightning import callbacks as callbackpool
+from plutils.config.parsers import parse_model, parse_datamodule, parse_logging, parse_callbacks, parse_strategy
 from plutils.config.usr_config import get_usr_config
-from plutils.config.parsers import *
 from plutils.train.standard_training import StandardTrainingModule, run_standard_training
 
 if __name__ == '__main__':
@@ -26,7 +27,7 @@ if __name__ == '__main__':
     )
 
     strategy = parse_strategy(usr_config.trainer.init_args.training_strategy)
-    callbacks = parse_callbacks(logger, usr_config, usr_config.trainer.persist_ckpt)
+    callbacks = parse_callbacks(logger, usr_config, callbackpool, usr_config.trainer.persist_ckpt)
     training_module = StandardTrainingModule(model, usr_config)
 
     run_standard_training(
@@ -39,4 +40,3 @@ if __name__ == '__main__':
         callbacks=callbacks,
         verbose=usr_config.verbose
     )
-
