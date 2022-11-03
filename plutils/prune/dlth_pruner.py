@@ -17,7 +17,6 @@ import torch.nn.functional as F
 import torch.optim as optim
 import torchmetrics
 from torch import nn
-from pytorch_lightning import callbacks as callbackpool
 
 from plutils.analysis import get_pr_over_kp
 from plutils.config.parsers import parse_logging, parse_callbacks, parse_strategy
@@ -74,7 +73,7 @@ class DlthPruner:
 
         finetune_logger = parse_logging(save_dir=os.path.split(logger.root_dir)[0], name='finetune')
         strategy = parse_strategy(usr_config.trainer.strategy)
-        callbacks = parse_callbacks(finetune_logger, usr_config, callbackpool, usr_config.trainer.persist_ckpt)
+        callbacks = parse_callbacks(finetune_logger, usr_config, pl.callbacks, usr_config.trainer.persist_ckpt)
 
         self.finetune(finetune_logger, strategy, callbacks, finetune_datamodule, usr_config.trainer.epochs)
 

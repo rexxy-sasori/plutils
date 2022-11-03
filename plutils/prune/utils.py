@@ -1,5 +1,6 @@
 import numpy as np
 import torch
+import torch.nn as nn
 
 from plutils.utils import matrix_to_blocks, blocks_to_matrix, is_linear_transform_layer, strip_module_in_module_name
 
@@ -65,3 +66,76 @@ def find_targets(model, prune_first_layer, prune_last_layer):
         target_layers[name] = module
 
     return target_layers
+
+
+def local_prune_model(targets, pruning_rate, block_policy, score_func):
+    for name, module in targets.items():
+        weight = module.weight.data
+        blockdim = get_block_dim(block_policy, name, module)
+        if isinstance(module, nn.Conv2d):
+            cout, cin, hk, wk = weight.shape
+            weight = weight.reshape(cout, cin * hk * wk)
+
+        weight_blocks, num_blocks_row, num_blocks_col = matrix_to_blocks(weight, *blockdim)
+        block_score, block_score_sep = score_func(weight_blocks)
+        num_blocks_rm = int(num_blocks_row * num_blocks_col * pruning_rate)
+        sorted_scores, _ = torch.sort(block_score)
+        threshold = sorted_scores[num_blocks_rm]
+
+        block_score = torch.sum(block_score_sep, dim=(-2, -1)) / (blockdim[0] * blockdim[1])
+        block_mask = (block_score >= threshold).float()
+        block_mask = block_mask.unsqueeze(-1).unsqueeze(-1) * torch.ones_like(block_score_sep)
+        mask = blocks_to_matrix(block_mask, num_blocks_row, num_blocks_col, blockdim[0], blockdim[1])
+        if isinstance(module, nn.Conv2d):
+            cout, cin, hk, wk = module.weight.data.shape
+            mask = mask.reshape(cout, cin, hk, wk)
+
+        module.mask = mask
+
+
+def global_prune_model(targets, pruning_rate, total_param, block_policy, score_func):
+    block_scores = []
+    block_dim_map = []
+    block_infos = {}
+    for name, module in targets.items():
+        weight = module.weight.data
+        blockdim = get_block_dim(block_policy, name, module)
+        if isinstance(module, nn.Conv2d):
+            cout, cin, hk, wk = weight.shape
+            weight = weight.reshape(cout, cin * hk * wk)
+
+        weight_blocks, num_blocks_row, num_blocks_col = matrix_to_blocks(weight, *blockdim)
+        block_score, block_score_sep = score_func(weight_blocks)
+        block_scores.append(block_score)
+        block_dim_map.append(blockdim[0] * blockdim[1] * torch.ones_like(block_score))
+        block_infos[name] = (block_score_sep, num_blocks_row, num_blocks_col, blockdim)
+
+    block_scores = torch.cat(block_scores)
+    block_dim_map = torch.cat(block_dim_map)
+    num_params_to_rm = int(total_param * pruning_rate)
+    sorted_scores, sorted_indices = torch.sort(block_scores)
+    param_cum = torch.cumsum(block_dim_map[sorted_indices], dim=0)
+    cutoff_index = torch.where((num_params_to_rm < param_cum).float() == 1)[0][0]
+    threshold = sorted_scores[cutoff_index]
+
+    total_sparsity = 0
+    for name, module in targets.items():
+        block_score_sep, num_blocks_row, num_blocks_col, block_dim = block_infos[name]
+        block_score = torch.sum(block_score_sep, dim=(-2, -1)) / (block_dim[0] * block_dim[1])
+        block_mask = (block_score >= threshold).float()
+        block_mask = block_mask.unsqueeze(-1).unsqueeze(-1) * torch.ones_like(block_score_sep)
+        mask = blocks_to_matrix(block_mask, num_blocks_row, num_blocks_col, *block_dim)
+        if isinstance(module, nn.Conv2d):
+            cout, cin, hk, wk = module.weight.data.shape
+            mask = mask.reshape(cout, cin, hk, wk)
+
+        layer_sparsity = 1 - mask.sum().item() / mask.numel()
+        total_sparsity += module.weight.data.numel() / total_param * layer_sparsity
+        module.mask = mask
+
+
+def mag_score_func(weighted_blocks):
+    block_score_sep = torch.sqrt(torch.square(weighted_blocks))
+    _, blockrow, blockcol = weighted_blocks.shape
+    block_score = torch.sum(block_score_sep, dim=(-2, -1)) / (blockrow * blockcol)
+    return block_score, block_score_sep

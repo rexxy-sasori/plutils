@@ -1,6 +1,6 @@
 import argparse
 
-from pytorch_lightning import seed_everything
+import pytorch_lightning as pl
 
 import plutils.data as datazoo
 import plutils.models as modelzoo
@@ -14,7 +14,7 @@ if __name__ == '__main__':
     command_args = parser.parse_args()
     usr_config = get_usr_config(command_args.usr_config)
 
-    seed_everything(usr_config.seed)
+    pl.seed_everything(usr_config.seed)
 
     model = parse_model(usr_config, modelzoo)
     block_policy = parse_block_policy(model, usr_config)

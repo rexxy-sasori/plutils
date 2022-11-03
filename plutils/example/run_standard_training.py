@@ -1,10 +1,9 @@
 import argparse
 
-from pytorch_lightning import seed_everything
+import pytorch_lightning as pl
 
 import plutils.data as datazoo
 import plutils.models as modelzoo
-from pytorch_lightning import callbacks as callbackpool
 from plutils.config.parsers import parse_model, parse_datamodule, parse_logging, parse_callbacks, parse_strategy
 from plutils.config.usr_config import get_usr_config
 from plutils.train.standard_training import StandardTrainingModule, run_standard_training
@@ -15,7 +14,7 @@ if __name__ == '__main__':
     command_args = parser.parse_args()
     usr_config = get_usr_config(command_args.usr_config)
 
-    seed_everything(usr_config.seed)
+    pl.seed_everything(usr_config.seed)
 
     model = parse_model(usr_config, modelzoo)
     data_module = parse_datamodule(usr_config, datazoo)
@@ -27,7 +26,7 @@ if __name__ == '__main__':
     )
 
     strategy = parse_strategy(usr_config.trainer.init_args.training_strategy)
-    callbacks = parse_callbacks(logger, usr_config, callbackpool, usr_config.trainer.persist_ckpt)
+    callbacks = parse_callbacks(logger, usr_config, pl.callbacks, usr_config.trainer.persist_ckpt)
     training_module = StandardTrainingModule(model, usr_config)
 
     run_standard_training(

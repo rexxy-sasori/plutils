@@ -19,15 +19,13 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
 import torchmetrics
-from pytorch_lightning.callbacks import EarlyStopping, ModelCheckpoint
-from pytorch_lightning import callbacks as callbackpool
 
 from plutils.analysis import get_num_params, get_sparsity
 from plutils.config.parsers import parse_strategy, parse_logging, parse_callbacks
 from plutils.module import MaskLinear, MaskConv2d, convert_module
-from plutils.prune.utils import find_targets, exp_pruning_schedule, get_block_dim
+from plutils.prune.utils import find_targets, exp_pruning_schedule, global_prune_model, local_prune_model, mag_score_func
 from plutils.train.standard_training import run_standard_training, StandardTrainingModule
-from plutils.utils import rsetattr, matrix_to_blocks, blocks_to_matrix
+from plutils.utils import rsetattr
 
 
 class ImpPruner:
@@ -84,9 +82,12 @@ class ImpPruner:
 
         logger = parse_logging(usr_config=usr_config, use_time_code=usr_config.trainer.use_time_code, name='pretrain')
         pretrain_strategy = parse_strategy(usr_config.pruner.init_args.pretrain_strategy)
-        callbacks = parse_callbacks(logger, usr_config, callbackpool, usr_config.trainer.persist_ckpt)
+        callbacks = parse_callbacks(logger, usr_config, pl.callbacks, usr_config.trainer.persist_ckpt)
 
-        self.train_model(logger, pretrain_strategy, callbacks, data_module)
+        run_standard_training(
+            self.pretrain_module, data_module, self.usr_config.trainer.epochs,
+            self.ckpt_path, logger, pretrain_strategy, callbacks, self.debug_on
+        )
 
         sparsity_schedule_logger = parse_logging(
             save_dir=os.path.split(logger.root_dir)[0],
@@ -96,13 +97,8 @@ class ImpPruner:
         run_sparsity_schedule_strategy = parse_strategy(usr_config.pruner.init_args.run_sparsity_schedule_strategy)
         self.run_sparsity_schedule(sparsity_schedule_logger, run_sparsity_schedule_strategy, data_module)
 
-    def train_model(self, logger, strategy, callbacks, data_module):
-        run_standard_training(
-            self.pretrain_module, data_module, self.usr_config.trainer.epochs,
-            self.ckpt_path, logger, strategy, callbacks, self.debug_on
-        )
-
     def run_sparsity_schedule(self, logger, strategy, data_module):
+        from pytorch_lightning.callbacks import EarlyStopping, ModelCheckpoint
         callbacks = [
             EarlyStopping(
                 monitor='sparsity', mode='max',
@@ -219,75 +215,9 @@ class ImpModule(pl.LightningModule):
 
     def cut_weights(self, pruning_rate):
         if self.global_prune:
-            self._global_prune(pruning_rate)
+            local_prune_model(self.target_layers, pruning_rate, self.block_policy, mag_score_func)
         else:
-            self._local_prune(pruning_rate)
-
-    def _local_prune(self, pruning_rate):
-        for name, module in self.target_layers.items():
-            weight = module.weight.data
-            blockdim = get_block_dim(self.block_policy, name, module)
-            if isinstance(module, nn.Conv2d):
-                cout, cin, hk, wk = weight.shape
-                weight = weight.reshape(cout, cin * hk * wk)
-
-            weight_blocks, num_blocks_row, num_blocks_col = matrix_to_blocks(weight, *blockdim)
-            block_score_sep = torch.sqrt(torch.square(weight_blocks))
-            block_score = torch.sum(block_score_sep, dim=(-2, -1)) / (blockdim[0] * blockdim[1])
-            num_blocks_rm = int(num_blocks_row * num_blocks_col * pruning_rate)
-            sorted_scores, _ = torch.sort(block_score)
-            threshold = sorted_scores[num_blocks_rm]
-
-            block_score = torch.sum(block_score_sep, dim=(-2, -1)) / (blockdim[0] * blockdim[1])
-            block_mask = (block_score >= threshold).float()
-            block_mask = block_mask.unsqueeze(-1).unsqueeze(-1) * torch.ones_like(block_score_sep)
-            mask = blocks_to_matrix(block_mask, num_blocks_row, num_blocks_col, blockdim[0], blockdim[1])
-            if isinstance(module, nn.Conv2d):
-                cout, cin, hk, wk = module.weight.data.shape
-                mask = mask.reshape(cout, cin, hk, wk)
-
-            module.mask = mask
-
-    def _global_prune(self, pruning_rate):
-        block_scores = []
-        block_dim_map = []
-        block_infos = {}
-        for name, module in self.target_layers.items():
-            weight = module.weight.data
-            blockdim = get_block_dim(self.block_policy, name, module)
-            if isinstance(module, nn.Conv2d):
-                cout, cin, hk, wk = weight.shape
-                weight = weight.reshape(cout, cin * hk * wk)
-
-            weight_blocks, num_blocks_row, num_blocks_col = matrix_to_blocks(weight, *blockdim)
-            block_score_sep = torch.sqrt(torch.square(weight_blocks))
-            block_score = torch.sum(block_score_sep, dim=(-2, -1)) / (blockdim[0] * blockdim[1])
-            block_scores.append(block_score)
-            block_dim_map.append(blockdim[0] * blockdim[1] * torch.ones_like(block_score))
-            block_infos[name] = (block_score_sep, num_blocks_row, num_blocks_col, blockdim)
-
-        block_scores = torch.cat(block_scores)
-        block_dim_map = torch.cat(block_dim_map)
-        num_params_to_rm = int(self.total_param * pruning_rate)
-        sorted_scores, sorted_indices = torch.sort(block_scores)
-        param_cum = torch.cumsum(block_dim_map[sorted_indices], dim=0)
-        cutoff_index = torch.where((num_params_to_rm < param_cum).float() == 1)[0][0]
-        threshold = sorted_scores[cutoff_index]
-
-        total_sparsity = 0
-        for name, module in self.target_layers.items():
-            block_score_sep, num_blocks_row, num_blocks_col, block_dim = block_infos[name]
-            block_score = torch.sum(block_score_sep, dim=(-2, -1)) / (block_dim[0] * block_dim[1])
-            block_mask = (block_score >= threshold).float()
-            block_mask = block_mask.unsqueeze(-1).unsqueeze(-1) * torch.ones_like(block_score_sep)
-            mask = blocks_to_matrix(block_mask, num_blocks_row, num_blocks_col, *block_dim)
-            if isinstance(module, nn.Conv2d):
-                cout, cin, hk, wk = module.weight.data.shape
-                mask = mask.reshape(cout, cin, hk, wk)
-
-            layer_sparsity = 1 - mask.sum().item() / mask.numel()
-            total_sparsity += module.weight.data.numel() / self.total_param * layer_sparsity
-            module.mask = mask
+            global_prune_model(self.target_layers, pruning_rate, self.total_param, self.block_policy, mag_score_func)
 
     def validation_step(self, batch, batch_idx):
         x, y = batch

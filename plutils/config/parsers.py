@@ -78,8 +78,9 @@ def parse_logging(logger_cls=CSVLogger, usr_config=None, use_time_code=False, na
 
 
 def parse_callbacks(logger, usr_config, callbacks_modules, persist_ckpt=True):
+    from pytorch_lightning.callbacks import LearningRateMonitor, ModelCheckpoint
     callbacks = [
-        callbacks_modules.LearningRateMonitor(logging_interval='step')
+        LearningRateMonitor(logging_interval='step')
     ]
 
     for idx in range(len(usr_config.trainer.callbacks)):
@@ -89,7 +90,7 @@ def parse_callbacks(logger, usr_config, callbacks_modules, persist_ckpt=True):
 
     if persist_ckpt:
         callbacks.append(
-            callbacks_modules.ModelCheckpoint(
+            ModelCheckpoint(
                 monitor='val_loss',
                 dirpath=logger.log_dir,
                 filename='{epoch}-{val_loss:.2f}-{val_acc:.2f}',

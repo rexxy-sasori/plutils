@@ -6,7 +6,7 @@ import torch.optim as optim
 import torchmetrics
 
 from plutils.config.parsers import parse_optimization_config
-from plutils.utils import debug_msg
+from plutils.utils import debug_msg, none_check, attr_check
 
 
 class StandardTrainingModule(pl.LightningModule):
@@ -24,9 +24,11 @@ class StandardTrainingModule(pl.LightningModule):
         if usr_config is None:
             self.optimizer_config = optimizer_config
             self.lr_scheduler_config = lr_scheduler_config
+            self.label_smoothing = none_check(self.optimizer_config.get('label_smoothing'))
         else:
             self.optimizer_config = usr_config.optimizer
             self.lr_scheduler_config = usr_config.lr_scheduler
+            self.label_smoothing = attr_check(self.optimizer_config, 'label_smoothing', 0)
 
         self.train_acc = torchmetrics.Accuracy()
         self.val_acc = torchmetrics.Accuracy()
@@ -60,7 +62,7 @@ class StandardTrainingModule(pl.LightningModule):
     def training_step(self, batch, batch_idx):
         x, y = batch
         y_hat = self(x)
-        train_loss = F.cross_entropy(y_hat, y, label_smoothing=self.optimizer_config.label_smoothing)
+        train_loss = F.cross_entropy(y_hat, y, label_smoothing=self.label_smoothing)
 
         self.train_acc(y_hat, y)
         self.log('train_acc', self.train_acc, on_step=True, on_epoch=True)
