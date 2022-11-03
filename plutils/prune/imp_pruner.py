@@ -23,7 +23,13 @@ import torchmetrics
 from plutils.analysis import get_num_params, get_sparsity
 from plutils.config.parsers import parse_strategy, parse_logging, parse_callbacks
 from plutils.module import MaskLinear, MaskConv2d, convert_module
-from plutils.prune.utils import find_targets, exp_pruning_schedule, global_prune_model, local_prune_model, mag_score_func
+from plutils.prune.utils import (
+    find_targets,
+    exp_pruning_schedule,
+    global_prune_model,
+    local_prune_model,
+    mag_score_func
+)
 from plutils.train.standard_training import run_standard_training, StandardTrainingModule
 from plutils.utils import rsetattr
 

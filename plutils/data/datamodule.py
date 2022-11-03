@@ -4,7 +4,10 @@ import pl_bolts.datamodules as dms
 import pytorch_lightning as pl
 import torch
 import torchvision
-from pl_bolts.transforms.dataset_normalizations import cifar10_normalization, imagenet_normalization
+from pl_bolts.transforms.dataset_normalizations import (
+    cifar10_normalization,
+    imagenet_normalization
+)
 from torch.utils.data import DataLoader
 
 from plutils.data.dataset import TarImageFolder

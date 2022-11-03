@@ -4,7 +4,13 @@ import pytorch_lightning as pl
 
 import plutils.data as datazoo
 import plutils.models as modelzoo
-from plutils.config.parsers import parse_model, parse_logging, parse_datamodule, parse_strategy, parse_block_policy
+from plutils.config.parsers import (
+    parse_model,
+    parse_logging,
+    parse_datamodule,
+    parse_strategy,
+    parse_block_policy
+)
 from plutils.config.usr_config import get_usr_config
 from plutils.prune.dlth_pruner import DlthPruner
 

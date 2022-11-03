@@ -4,7 +4,12 @@ import pytorch_lightning as pl
 
 import plutils.data as datazoo
 import plutils.models as modelzoo
-from plutils.config.parsers import parse_model, parse_datamodule, parse_logging, parse_callbacks, parse_strategy
+from plutils.config.parsers import (
+    parse_model,
+    parse_logging,
+    parse_datamodule,
+    parse_strategy
+)
 from plutils.config.usr_config import get_usr_config
 from plutils.train.standard_training import StandardTrainingModule, run_standard_training
 
