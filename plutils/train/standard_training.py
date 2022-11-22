@@ -1,3 +1,5 @@
+from typing import Callable
+
 import pytorch_lightning as pl
 import torch
 import torch.nn as nn
@@ -16,10 +18,12 @@ class StandardTrainingModule(pl.LightningModule):
             usr_config=None,
             optimizer_config: dict = None,
             lr_scheduler_config: dict = None,
+            loss_func: Callable = F.cross_entropy,
             *args, **kwargs
     ):
         super(StandardTrainingModule, self).__init__(*args, **kwargs)
         self.module = model
+        self.loss_func = loss_func
 
         if usr_config is None:
             self.optimizer_config = optimizer_config
@@ -62,7 +66,7 @@ class StandardTrainingModule(pl.LightningModule):
     def training_step(self, batch, batch_idx):
         x, y = batch
         y_hat = self(x)
-        train_loss = F.cross_entropy(y_hat, y, label_smoothing=self.label_smoothing)
+        train_loss = self.loss_func(y_hat, y, label_smoothing=self.label_smoothing)
 
         self.train_acc(y_hat, y)
         self.log('train_acc', self.train_acc, on_step=True, on_epoch=True)
@@ -74,7 +78,7 @@ class StandardTrainingModule(pl.LightningModule):
         x, y = batch
 
         y_hat = self(x)
-        val_loss = F.cross_entropy(y_hat, y)
+        val_loss = self.loss_func(y_hat, y)
 
         self.val_acc(y_hat, y)
         self.log('val_acc', self.val_acc, on_step=True, on_epoch=True, logger=True)
@@ -85,7 +89,7 @@ class StandardTrainingModule(pl.LightningModule):
 
         y_hat = self(x)
 
-        test_loss = F.cross_entropy(y_hat, y)
+        test_loss = self.loss_func(y_hat, y)
         self.test_acc(y_hat, y)
         self.log('test_acc', self.test_acc, on_step=True, on_epoch=True, logger=True)
         self.log('test_loss', test_loss, on_step=True, on_epoch=True, logger=True)
