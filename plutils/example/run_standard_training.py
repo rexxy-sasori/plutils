@@ -8,7 +8,8 @@ from plutils.config.parsers import (
     parse_model,
     parse_logging,
     parse_datamodule,
-    parse_strategy
+    parse_strategy,
+    parse_callbacks
 )
 from plutils.config.usr_config import get_usr_config
 from plutils.train.standard_training import StandardTrainingModule, run_standard_training
